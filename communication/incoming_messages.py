@@ -51,12 +51,12 @@ class GameInfoMessage(IncomingMessage):
         self.goal = int(parts[7])
         self.width = int(parts[8])
         self.length = int(parts[9])
-        self.num_boats = int(parts[10])
-        if len(parts) < (11 + self.num_boats):
+        num_boats = int(parts[10])
+        if len(parts) < (11 + num_boats):
             raise Exception('Not enough boat descriptors')
-        boats = []
-        for boat in range(self.num_boats):
-            boats.append(parts[11 + boat])
+        self.boats = []
+        for boat in range(num_boats):
+            self.boats.append(parts[11 + boat])
 
 class TurnMessage(IncomingMessage):
     def __init__(self, message):
@@ -87,4 +87,14 @@ class ScoreMessage(IncomingMessage):
         self.skips = int(parts[3])
         self.turns = int(parts[4])
         self.status = parts[5]
+
+class HitMessage(IncomingMessage):
+    def __init__(self, message):
+        super().__init__(message)
+        parts = message.split("|")
+        if len(parts) is not 4 or parts[0] is not 'H':
+            raise Exception('Invalid hit message')
+        self.player = parts[1]
+        self.x = ord(parts[3][0]) - ord('a')
+        self.y = int(parts[3][1:])
 

@@ -22,7 +22,6 @@ class BoatsinkerListener():
             raise Exception('Socket is closed')
 
         msgStr = str(msg) + '\n'
-        #print('Sending message: ' + msgStr)
         sent = 0
         msg = bytes(msgStr, 'utf-8')
         length = len(msg)
