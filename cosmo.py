@@ -9,11 +9,11 @@ class CosmoBot(BoatBot):
 
     def calculate_shot(self):
         # use move stack if we have it
-        while len(self._move_stack) is not 0:
-            (player, x, y) = self._move_stack.pop()
-            board = self.game.boards[player]
-            if board[y][x] == '.':
-                return player, (x+1, y+1)
+#        while len(self._move_stack) is not 0:
+#            (player, x, y) = self._move_stack.pop()
+#            board = self.game.boards[player]
+#            if board[y][x] == '.':
+#                return player, (x+1, y+1)
 
         # calculate probability of all open squares having a boat
         board_counts = [(player, self._calculate_counts(board)) for (player, board) in self.game.boards.items()]
