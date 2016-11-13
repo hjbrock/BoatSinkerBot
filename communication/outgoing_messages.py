@@ -4,7 +4,7 @@ class OutgoingMessage(object):
     def __init__(self):
         pass
 
-    def to_string(self):
+    def __str__(self):
         raise Exception('unimplemented')
 
 class ShootMessage(OutgoingMessage):
@@ -14,7 +14,7 @@ class ShootMessage(OutgoingMessage):
         self.y = y
         self.player = player
 
-    def to_string(self):
+    def __str__(self):
         return 'S|{0}|{1}|{2}'.format(self.player, self.x, self.y)
 
 class JoinMessage(OutgoingMessage):
@@ -23,7 +23,7 @@ class JoinMessage(OutgoingMessage):
         self.name = name
         self.board = board
 
-    def to_string(self):
+    def __str__(self):
         board_str = ''
         for y in self.board:
             for x in y:

@@ -3,22 +3,26 @@ import socket
 
 class BoatsinkerListener():
     def __init__(self, host, port):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host = host
         self.port = port
 
     def connect(self):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((self.host, self.port))
     
     def close(self):
         try:
             self.socket.close()
+            self.socket = None
         except:
             print('Error closing socket')
 
     def send(self, msg):
-        msgStr = msg.to_string() + '\n'
-        print('Sending message: ' + msgStr)
+        if self.socket is None:
+            raise Exception('Socket is closed')
+
+        msgStr = str(msg) + '\n'
+        #print('Sending message: ' + msgStr)
         sent = 0
         msg = bytes(msgStr, 'utf-8')
         length = len(msg)
@@ -29,6 +33,9 @@ class BoatsinkerListener():
             sent = sent + just_sent
 
     def receive(self):
+        if self.socket is None:
+            raise Exception('Socket is closed')
+
         buf = self.socket.recv(1024)
         strBuf = ''
         buffering = True

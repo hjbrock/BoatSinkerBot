@@ -5,30 +5,36 @@ class IncomingMessage(object):
         self.orig_message = message
 
 class BoardMessage(IncomingMessage):
-    BOARD_SIZE = 10 # assumes 10x10 board
-    
-    def __init__(self, message):
+    def __init__(self, message, width, length):
         super().__init__(message)
         parts = message.split("|")
         if len(parts) is not 6 or parts[0] is not 'B':
             raise Exception('Not a board message')
         self.player = parts[1]
         self.status = parts[2]
-        self._board_str = parts[3]
-        self.score = parts[4]
-        self.skips = parts[5]
+        self.score = int(parts[4])
+        self.skips = int(parts[5])
+        self.width = width
+        self.length = length
+        self.board = self._read_board(parts[3])
 
-    def board(self):
-        super().__init__(message)
-        if len(self._board_str) is not self.BOARD_SIZE**2:
+    def _read_board(self, board_str):
+        if len(board_str) is not self.width*self.length:
             raise Exception('Invalid board')
         count = 0
-        board = [['.' for x in range(self.BOARD_SIZE)] for y in range(self.BOARD_SIZE)]
-        for char in self._board_str:
-            y = count / self.BOARD_SIZE
-            x = count % self.BOARD_SIZE
-            board[y][x] = char
+        board = [['.' for x in range(self.width)] for y in range(self.length)]
+        for y in range(0, self.length):
+            for x in range(0, self.width):
+                board[y][x] = board_str[0]
+                board_str = board_str[1:]
         return board
+
+    def print_board(self):
+        str_board = ''
+        for y in range(0, self.length):
+            for x in range(0, self.width):
+                str_board = str_board + self.board[y][x] + ' '
+            str_board = str_board + '\n'
 
 class GameInfoMessage(IncomingMessage):
     def __init__(self, message):
@@ -64,11 +70,11 @@ class FinishedMessage(IncomingMessage):
     def __init__(self, message):
         super().__init__(message)
         parts = message.split("|")
-        if len(parts) is not 3 or parts[0] is not 'F':
+        if len(parts) is not 4 or parts[0] is not 'F':
             raise Exception('Invalid finished message')
         self.state = parts[1]
-        self.turns = parts[2]
-        self.players = parts[3]
+        self.turns = int(parts[2])
+        self.players = int(parts[3])
 
 class ScoreMessage(IncomingMessage):
     def __init__(self, message):
@@ -77,8 +83,8 @@ class ScoreMessage(IncomingMessage):
         if len(parts) is not 6 or parts[0] is not 'R':
             raise Exception('Invalid score message')
         self.player = parts[1]
-        self.score = parts[2]
-        self.skips = parts[3]
-        self.turns = parts[4]
+        self.score = int(parts[2])
+        self.skips = int(parts[3])
+        self.turns = int(parts[4])
         self.status = parts[5]
 
