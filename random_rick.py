@@ -25,46 +25,7 @@ class RandomRickBot(BoatBot):
         pass
 
     def _generate_board(self):
-        board = ['.' for x in range(0, self.game.width*self.game.length)]
-        for boat in self.game.boats:
-            letter = boat[0:1]
-            size = int(boat[1:])
-            # find all spots to put this boat, then pick a random spot
-            # format: x|y|direction
-            locations = []
-            for i in range(0, len(board)):
-                (horizontal, vertical) = self._check_location(board, i, size)
-                if horizontal:
-                    locations.append((i, 'horizontal'))
-                if vertical:
-                    locations.append((i, 'vertical'))
-
-            (i, direction) = locations[randrange(0, len(locations))]
-            if direction == 'horizontal':
-                for xx in range(i, i + size):
-                    board[xx] = letter
-            elif direction == 'vertical':
-                for yy in range(i, i + (self.game.width*size), self.game.width):
-                    board[yy] = letter
-
-        return ''.join(board)
-    
-    def _check_location(self, board, i, size):
-        if board[i] != '.':
-            return (False, False)
-        #check right and down
-        horizontal = True
-        vertical = True
-        x, y = self.index_to_coordinate(i)
-        for pos in range(0, size):
-            if horizontal and (((x + pos) >= self.game.width) or (board[self.coordinate_to_index(x+pos, y)] != '.')):
-                horizontal = False
-            if vertical and (((y + pos) >= self.game.length) or (board[self.coordinate_to_index(x, y+pos)] != '.')):
-                vertical = False
-            if not horizontal and not vertical:
-                break
-
-        return (horizontal, vertical)
+        return self.random_board()
 
 # RandomRick boat bot main
 if __name__ == '__main__':

@@ -1,10 +1,12 @@
 # Socket listener for boat clients
 import socket
+from .logger import Logger
 
 class BoatsinkerListener():
     def __init__(self, host, port):
         self.host = host
         self.port = port
+        self.logger = Logger()
 
     def connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -22,7 +24,7 @@ class BoatsinkerListener():
             raise Exception('Socket is closed')
 
         msgStr = str(msg) + '\n'
-        print('Sending msg: ' + str(msg))
+        self.logger.debug('Sending msg: ' + str(msg))
         sent = 0
         msg = bytes(msgStr, 'utf-8')
         length = len(msg)
@@ -44,7 +46,7 @@ class BoatsinkerListener():
             if '\n' in strBuf:
                 (msg, strBuf) = strBuf.split('\n', 1)
                 buf = bytes(strBuf, 'utf-8')
-                print('Received msg: ' + msg)
+                self.logger.debug('Received msg: ' + msg)
                 yield msg
             else:
                 more_buf = self.socket.recv(1024)
@@ -54,6 +56,6 @@ class BoatsinkerListener():
                     buf += more_buf
         if buf:
             msg = buf.decode('utf-8')
-            print('Received msg: ' + msg)
+            self.logger.debug('Received msg: ' + msg)
             yield msg
 

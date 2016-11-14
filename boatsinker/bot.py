@@ -1,7 +1,8 @@
 import traceback
 from random import randrange
-from boatsinker.listener import BoatsinkerListener
-from boatsinker.game import Game
+from .listener import BoatsinkerListener
+from .game import Game
+from .logger import Logger
 
 # Bot base class
 class BoatBot(BoatsinkerListener):
@@ -10,6 +11,7 @@ class BoatBot(BoatsinkerListener):
         self.bot_name = bot_name
         self.game = None
         self.num_scores = 0
+        self.logger = Logger()
 
     def run(self):
         try:
@@ -18,12 +20,12 @@ class BoatBot(BoatsinkerListener):
             msgs = self.receive()
             for msg in msgs:
                 if not msg or msg == '':
-                    print('Empty message received, leaving game')
+                    self.logger.warn('Empty message received, leaving game')
                     break
                 self._handle(msg)
         except:
             traceback.print_exc()
-            print('Error reading from socket, shutting down')
+            self.logger.error('error encountered, shutting down')
         finally:
             self.close()
 
@@ -68,8 +70,8 @@ class BoatBot(BoatsinkerListener):
             self.game = Game(self.bot_name, width, length, boats)
             board = self._generate_board()
             self.send('J|{0}|{1}'.format(self.bot_name, board))
-            print('Joined game with board:')
-            self.print_board(board)
+            self.logger.info('Joined game')
+            self.logger.debug(self.print_board(board))
 
     def _board_change(self, parts):
         if self.game is not None:
@@ -91,7 +93,7 @@ class BoatBot(BoatsinkerListener):
         self.game.update_score(player, score)
         self.num_scores = self.num_scores - 1
         if self.num_scores is 0:
-            print('Winner(s): {0}'.format(str(self.game.winner())))
+            self.logger.info('Winner(s): {0}'.format(str(self.game.winner())))
             self.game = None
 
     def index_to_coordinate(self, index):
@@ -103,7 +105,51 @@ class BoatBot(BoatsinkerListener):
         return int((y * self.game.width) + x)
 
     def print_board(self, board):
+        rows = []
         for y in range(0, self.game.length):
             row = board[y*self.game.width:(y+1)*self.game.width]
-            print(' '.join(row))
-        
+            rows.append(' '.join(row))
+        return '\n'.join(rows)
+   
+    def random_board(self):
+        board = ['.' for x in range(0, self.game.width*self.game.length)]
+        for boat in self.game.boats:
+            letter = boat[0:1]
+            size = int(boat[1:])
+            # find all spots to put this boat, then pick a random spot
+            # format: x|y|direction
+            locations = []
+            for i in range(0, len(board)):
+                (horizontal, vertical) = self._check_location(board, i, size)
+                if horizontal:
+                    locations.append((i, 'horizontal'))
+                if vertical:
+                    locations.append((i, 'vertical'))
+
+            (i, direction) = locations[randrange(0, len(locations))]
+            if direction == 'horizontal':
+                for xx in range(i, i + size):
+                    board[xx] = letter
+            elif direction == 'vertical':
+                for yy in range(i, i + (self.game.width*size), self.game.width):
+                    board[yy] = letter
+
+        return ''.join(board)
+
+    def _check_location(self, board, i, size):
+        if board[i] != '.':
+            return (False, False)
+        #check right and down
+        horizontal = True
+        vertical = True
+        x, y = self.index_to_coordinate(i)
+        for pos in range(0, size):
+            if horizontal and (((x + pos) >= self.game.width) or (board[self.coordinate_to_index(x+pos, y)] != '.')):
+                horizontal = False
+            if vertical and (((y + pos) >= self.game.length) or (board[self.coordinate_to_index(x, y+pos)] != '.')):
+                vertical = False
+            if not horizontal and not vertical:
+                break
+
+        return (horizontal, vertical)
+
