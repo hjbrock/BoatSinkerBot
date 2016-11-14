@@ -1,13 +1,12 @@
 import sys
-from bot import BoatBot
-from boards import shot_calculators as shots
+from boatsinker.bot import BoatBot
 
 class CosmoBot(BoatBot):
     def __init__(self, host, port):
         super().__init__(host, port, 'cosmo')
         self._move_stack = [] # moves = (player, x, y)
 
-    def calculate_shot(self):
+    def _calculate_shot(self):
         # use move stack if we have it
 #        while len(self._move_stack) is not 0:
 #            (player, x, y) = self._move_stack.pop()
@@ -23,62 +22,96 @@ class CosmoBot(BoatBot):
     def _max_count(self, counts):
         max_count = -1
         player = list(self.game.boards.keys())[0]
-        x = 0
-        y = 0
+        i = 0
         for (board_player, board_counts) in counts:
-            for yy in range(0, len(board_counts)):
-                for xx in range(0, len(board_counts[yy])):
-                    if board_counts[yy][xx] > max_count:
-                        player = board_player
-                        x = xx
-                        y = yy
-                        max_count = board_counts[yy][xx]
+            for ii in range(0, len(board_counts)):
+                if board_counts[i] > max_count:
+                    player = board_player
+                    i = ii
+                    max_count = board_counts[yy][xx]
 
+        x, y = self.index_to_coordinate(i)
         return (player, (x+1, y+1)) # board index starts at 1
 
     def _calculate_counts(self, board):
-        board_counts = [[0 for x in range(0, self.game_info.width)] for y in range(0, self.game_info.length)]
-        for boat in self.game_info.boats:
+        board_counts = [0 for x in range(0, self.game.width*self.game.length)]
+        for boat in self.game.boats:
             size = int(boat[1:])
             # find all spots to put this boat and increment counts for those squares
-            for y in range(0, len(board)):
-                for x in range(0, len(board[y])):
-                    (horizontal, vertical) = self._check_boat_location(board, x, y, size)
-                    if horizontal:
-                        for xx in range(x, x + size):
-                            if board[y][xx] == '.':
-                                board_counts[y][xx] = board_counts[y][xx] + 1
-                    if vertical:
-                        for yy in range(y, y + size):
-                            if board[yy][x] == '.':
-                                board_counts[yy][x] = board_counts[yy][x] + 1
+            for i in range(0, len(board_counts)):
+                x, y = self.index_to_coordinate(i) 
+                (horizontal, vertical) = self._check_boat_location(board, x, y, size)
+                if horizontal:
+                    for ii in range(i, i + size):
+                        if board[ii] == '.':
+                            board_counts[ii] = board_counts[ii] + 1
+                if vertical:
+                    for ii in range(ii, ii + (self.game.width*size), self.game.width):
+                        if board[ii] == '.':
+                            board_counts[ii] = board_counts[ii] + 1
         
         return board_counts
 
     def _check_boat_location(self, board, x, y, size):
-        if board[y][x] == '0':
+        if board[self.coordinate_to_index(x,y)] == '0':
             return (False, False)
         #check right and down
         horizontal = True
         vertical = True
         for pos in range(0, size):
-            if horizontal and (((x + pos) >= len(board[y])) or (board[y][x+pos] == '0')):
+            if horizontal and (((x + pos) >= self.game.width) or (board[self.coordinate_to_index(x+pos, y)] == '0')):
                 horizontal = False
-            if vertical and (((y + pos) >= len(board)) or (board[y+pos][x] == '0')):
+            if vertical and (((y + pos) >= self.game.length) or (board[self.coordinate_to_index(x, y+pos)] == '0')):
                 vertical = False
             if not horizontal and not vertical:
                 break
 
         return (horizontal, vertical)
 
-    def _hit(self, hitMsg):
-        if hitMsg.player == self.bot_name:
+    def _hit(self, player, x, y):
+        if player == self.bot_name:
             return
-        board = self.game.boards[hitMsg.player]
-        to_check = [(hitMsg.x+1, hitMsg.y), (hitMsg.x-1, hitMsg.y), (hitMsg.x, hitMsg.y+1), (hitMsg.x, hitMsg.y-1)]
+        to_check = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
         for (x,y) in to_check:
-            if (y < len(board) and y >= 0) and (x >= 0 and x < len(board[y])):
-                self._move_stack.append((hitMsg.player, x, y))
+            if (y < self.game.length and y >= 0) and (x >= 0 and x < self.game.width):
+                self._move_stack.append((player, x, y))
+
+    def _generate_board(self):
+        # create board with all boats on the outside
+        board = ['.' for x in range(0, self.game.width*self.game.length)]
+        for boat in self.game.boats:
+            (lastx, lasty) = (-1, 0)
+            letter = boat[0:1]
+            size = int(boat[1:])
+            placed = False
+            while not placed:
+                (x, y) = (lastx + 1, lasty)
+                if y >= self.game.length:
+                    break
+                if (x + size) < self.game.length:
+                    placed = True
+                    for xx in range(x, x + size):
+                        board[self.coordinate_to_index(xx, y)] = letter
+                    (lastx, lasty) = (x + size, lasty)
+                else:
+                    # go to bottom row
+                    (lastx, lasty) = (-1, lasty + self.game.length - 1)
+
+            (lastx, lasty) = (0, 1)
+            while not placed:
+                (x, y) = (lastx, lasty + 1)
+                if x >= self.game.width:
+                    break
+                if (y + size) < self.game.length - 1:
+                    placed = True
+                    for yy in range(y, y + size):
+                        board[self.coordinate_to_index(x, yy)] = letter
+                    (lastx, lasty) = (lastx, y + size)
+                else:
+                    # go to right column
+                    (lastx, lasty) = (lastx + self.game.width - 1, 1)
+
+        return board
 
 # Cosmo boat bot main
 if __name__ == '__main__':

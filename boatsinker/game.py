@@ -1,8 +1,11 @@
 class Game(object):
-    def __init__(self, player_name):
+    def __init__(self, player_name, width, length, boats):
         self.boards = {}
         self.current_player = player_name
         self.scores = {}
+        self.width = width
+        self.length = length
+        self.boats = boats
 
     def update_board(self, player_name, board):
         if player_name != self.current_player:

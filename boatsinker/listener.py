@@ -22,6 +22,7 @@ class BoatsinkerListener():
             raise Exception('Socket is closed')
 
         msgStr = str(msg) + '\n'
+        print('Sending msg: ' + str(msg))
         sent = 0
         msg = bytes(msgStr, 'utf-8')
         length = len(msg)
@@ -43,6 +44,7 @@ class BoatsinkerListener():
             if '\n' in strBuf:
                 (msg, strBuf) = strBuf.split('\n', 1)
                 buf = bytes(strBuf, 'utf-8')
+                print('Received msg: ' + msg)
                 yield msg
             else:
                 more_buf = self.socket.recv(1024)
@@ -51,5 +53,7 @@ class BoatsinkerListener():
                 else:
                     buf += more_buf
         if buf:
-            yield buf.decode('utf-8')
+            msg = buf.decode('utf-8')
+            print('Received msg: ' + msg)
+            yield msg
 
