@@ -52,9 +52,9 @@ class BoatBot(BoatsinkerListener):
         elif first is 'G':
             self._game_info(parts)
         elif first is 'H':
-            player = parts[1]
+            player = parts[2]
             x = ord(parts[3][0]) - ord('a')
-            y = int(parts[3][1:])
+            y = int(parts[3][1:]) - 1
             self._hit(player, x, y)
 
     def _game_info(self, parts):
@@ -108,7 +108,7 @@ class BoatBot(BoatsinkerListener):
         rows = []
         for y in range(0, self.game.length):
             row = board[y*self.game.width:(y+1)*self.game.width]
-            rows.append(' '.join(row))
+            rows.append(' '.join([str(x) for x in row]))
         return '\n'.join(rows)
    
     def random_board(self):

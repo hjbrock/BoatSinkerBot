@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import sys
 from boatsinker.bot import BoatBot
 from random import randrange

@@ -1,38 +1,74 @@
+#!/usr/bin/python3
+
 import sys
 from boatsinker.bot import BoatBot
 from boatsinker.logger import Logger
 
 class CosmoBot(BoatBot):
+
     def __init__(self, host, port):
         super().__init__(host, port, 'cosmo')
+        self.logger = Logger()
+        self.move_stack = {}
 
     def _calculate_shot(self):
+        player = self._pick_board()
         # calculate probability of all open squares having a boat
-        board_counts = [(player, self._calculate_counts(board)) for (player, board) in self.game.boards.items()]
-        # hit the square with the highest count
-        return self._max_count(board_counts)
+        board_counts = self._calculate_counts(player, self.game.boards[player])
+        # check if we're targetting
+        if player in self.move_stack:
+            moves = self.move_stack[player]
+            while len(moves) > 0:
+                move = moves.pop()
+                if board_counts[move] > 0:
+                    (x,y) = self.index_to_coordinate(move)
+                    self.logger.debug('Using stack move {0}'.format(move))
+                    return (player, (x+1,y+1))
+                else:
+                    self.logger.debug('Move {0} has 0 count'.format(move))
+        else:
+            self.logger.debug('Player {0} is not in move stack'.format(player))
+        # hit the square with the highest count otherwise
+        return (player, self._max_count(board_counts))
 
-    def _max_count(self, counts):
+    def _pick_board(self):
+        if len(self.game.boards) == 1:
+            return list(self.game.boards.keys())[0]
+
+        bestPlayer = ''
+        minEmptyCells = (self.game.width * self.game.length) + 1
+        for (player, board) in self.game.boards.items():
+            emptyCells = board.count('.')
+            if emptyCells < minEmptyCells:
+                minEmptyCells = emptyCells
+                bestPlayer = player
+
+        return player
+
+    def _max_count(self, board_counts):
         max_count = -1
-        player = list(self.game.boards.keys())[0]
         i = 0
-        for (board_player, board_counts) in counts:
-            for ii in range(0, len(board_counts)):
+        # parity search - every other square
+        #for ii in range(0, len(board_counts)):
+        for row in range(0, self.game.length):
+            start = (row * self.game.width) + (row % 2)
+            end = start + self.game.width
+            self.logger.debug('Start:{0} End:{1}'.format(start, end))
+            for ii in range(start, end, 2):
                 if board_counts[ii] > max_count:
-                    player = board_player
                     i = ii
                     max_count = board_counts[ii]
 
         x, y = self.index_to_coordinate(i)
-        return (player, (x+1, y+1)) # board index starts at 1
+        return (x+1, y+1) # board index starts at 1
 
-    def _calculate_counts(self, board):
+    def _calculate_counts(self, player, board):
         board_counts = [0 for x in range(0, len(board))]
-
         for boat in self.game.boats:
             size = int(boat[1:])
             # find all spots to put this boat and increment counts for those squares
             for i in range(0, len(board)):
+                # loop by rows, alternate parity in each row
                 (horizontal, vertical) = self._check_boat_location(board, i, size)
                 if horizontal:
                     for ii in range(i, i + size):
@@ -43,6 +79,7 @@ class CosmoBot(BoatBot):
                         if board[ii] == '.':
                             board_counts[ii] = board_counts[ii] + 1
        
+        self.logger.debug('Board:\n{0}\nCount:\n{1}'.format(self.print_board(board), self.print_board(board_counts)))
         return board_counts
 
     def _check_boat_location(self, board, i, size):
@@ -63,13 +100,21 @@ class CosmoBot(BoatBot):
         return (horizontal, vertical)
 
     def _hit(self, player, x, y):
-        #if player == self.bot_name:
-        #    return
-        #to_check = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
-        #for (x,y) in to_check:
-        #    if (y < self.game.length and y >= 0) and (x >= 0 and x < self.game.width):
-        #        self._move_stack.append((player, x, y))
-        pass
+        self.logger.debug('Hit at ({0},{1})'.format(x, y))
+        if player == self.bot_name:
+            return
+        if player not in self.move_stack:
+            self.move_stack[player] = []        
+        moves = self.move_stack[player]
+        if (x + 1) < self.game.width:
+            moves.append(self.coordinate_to_index(x + 1, y))
+        if (x - 1) >= 0:
+            moves.append(self.coordinate_to_index(x - 1, y))
+        if (y + 1) < self.game.length:
+            moves.append(self.coordinate_to_index(x, y + 1))
+        if (y - 1) >= 0:
+            moves.append(self.coordinate_to_index(x, y - 1))
+        self.logger.debug('Added moves to stack:{0}'.format(moves))
 
     def _generate_board(self):
         # TODO make smarter
