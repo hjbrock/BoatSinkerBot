@@ -9,64 +9,47 @@ class CosmoBot(BoatBot):
     def __init__(self, host, port):
         super().__init__(host, port, 'cosmo')
         self.logger = Logger()
-        self.move_stack = {}
+        self.hit_stack = []
 
     def _calculate_shot(self):
-        player = self._pick_board()
+        player, targetting = self._pick_board()
         # calculate probability of all open squares having a boat
         board_counts = self._calculate_counts(player, self.game.boards[player])
-        # check if we're targetting and pick the move with the highest count
-        if player in self.move_stack:
-            best_move = self._best_stack_move(self.move_stack[player], board_counts)
-            if best_move is not None:
-                return (player, best_move)
-        # hit the square with the highest count otherwise
-        return (player, self._max_count(board_counts))
+        # hit the square with the highest count
+        move = self._max_count(board_counts, targetting)
+        return (player, move)
 
     def _pick_board(self):
-        if len(self.game.boards) == 1:
-            return list(self.game.boards.keys())[0]
+        if len(self.hit_stack) > 0:
+            targetting = True
+            candidates = self.hit_stack
+        else:
+            targetting = False
+            candidates = self.game.boards.keys()
 
         bestPlayer = ''
         minEmptyCells = (self.game.width * self.game.length) + 1
-        for (player, board) in self.game.boards.items():
-            emptyCells = board.count('.')
+        for player in candidates:
+            emptyCells = self.game.boards[player].count('.')
             if emptyCells < minEmptyCells:
                 minEmptyCells = emptyCells
                 bestPlayer = player
 
-        return player
+        return bestPlayer, targetting
 
-    def _best_stack_move(self, moves, board_counts):
-        max_score = -1
-        best = -1
-        bad_moves = []
-        for move in moves:
-            if board_counts[move] == 0:
-                bad_moves.append(move)
-            elif board_counts[move] > max_score:
-                best = move
-                max_score = board_counts[move]
-        
-        for move in bad_moves:
-            moves.remove(move)
-
-        if best == -1:
-            return None
-        moves.remove(best)
-        (x,y) = self.index_to_coordinate(best)
-        return (x+1, y+1)
-
-    def _max_count(self, board_counts):
+    def _max_count(self, board_counts, targetting):
         max_count = -1
         i = 0
-        # parity search - every other square
-        #for ii in range(0, len(board_counts)):
+        # parity search - every other square if not targetting
+        step = 2
+        if targetting:
+            step = 1
         for row in range(0, self.game.length):
-            start = (row * self.game.width) + (row % 2)
+            start = (row * self.game.width)
             end = start + self.game.width
-            self.logger.debug('Start:{0} End:{1}'.format(start, end))
-            for ii in range(start, end, 2):
+            if not targetting:
+                start = start + (row % 2)
+            for ii in range(start, end, step):
                 if board_counts[ii] > max_count:
                     i = ii
                     max_count = board_counts[ii]
@@ -120,21 +103,9 @@ class CosmoBot(BoatBot):
         return (horizontal, hweight, vertical, vweight)
 
     def _hit(self, player, x, y):
-        self.logger.debug('Hit at ({0},{1})'.format(x, y))
         if player == self.bot_name:
             return
-        if player not in self.move_stack:
-            self.move_stack[player] = []        
-        moves = self.move_stack[player]
-        if (x + 1) < self.game.width:
-            moves.append(self.coordinate_to_index(x + 1, y))
-        if (x - 1) >= 0:
-            moves.append(self.coordinate_to_index(x - 1, y))
-        if (y + 1) < self.game.length:
-            moves.append(self.coordinate_to_index(x, y + 1))
-        if (y - 1) >= 0:
-            moves.append(self.coordinate_to_index(x, y - 1))
-        self.logger.debug('Added moves to stack:{0}'.format(moves))
+        self.hit_stack.append(player)
 
     def _generate_board(self):
         # TODO make smarter
