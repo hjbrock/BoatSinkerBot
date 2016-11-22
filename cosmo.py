@@ -9,39 +9,38 @@ class CosmoBot(BoatBot):
     def __init__(self, host, port):
         super().__init__(host, port, 'cosmo')
         self.logger = Logger()
-        self.hit_stack = []
 
     def _calculate_shot(self):
-        player, targetting = self._pick_board()
+        player, board = self._pick_board()
         # calculate probability of all open squares having a boat
-        board_counts = self._calculate_counts(player, self.game.boards[player])
+        boats = self._eliminate_boats(board)
+        if len(boats) == 0: # we screwed up 
+            boats = list(self.game.boats.values())
+        board_counts, targetting = self._calculate_counts(player, board, boats)
+        self.logger.debug('Player:{0} Targetting:{1}'.format(player, targetting))
         # hit the square with the highest count
-        move = self._max_count(board_counts, targetting)
+        move = self._max_count(board_counts, targetting, self.game.min_boat_size)
         return (player, move)
 
     def _pick_board(self):
-        if len(self.hit_stack) > 0:
-            targetting = True
-            candidates = self.hit_stack
-        else:
-            targetting = False
-            candidates = self.game.boards.keys()
-
         bestPlayer = ''
+        bestBoard = []
         minEmptyCells = (self.game.width * self.game.length) + 1
-        for player in candidates:
-            emptyCells = self.game.boards[player].count('.')
-            if emptyCells < minEmptyCells:
+        for player, board in self.game.boards.items():
+            emptyCells = board.count('.')
+            hits = board.count('X')
+            if hits < self.game.hits_per_board and emptyCells < minEmptyCells:
                 minEmptyCells = emptyCells
                 bestPlayer = player
+                bestBoard = board
 
-        return bestPlayer, targetting
+        return bestPlayer, bestBoard
 
-    def _max_count(self, board_counts, targetting):
+    def _max_count(self, board_counts, targetting, min_boat_size):
         max_count = -1
         i = 0
         # parity search - every other square if not targetting
-        step = 2
+        step = min_boat_size
         if targetting:
             step = 1
         for row in range(0, self.game.length):
@@ -53,18 +52,21 @@ class CosmoBot(BoatBot):
                 if board_counts[ii] > max_count:
                     i = ii
                     max_count = board_counts[ii]
-
+        
+        self.logger.debug('Max count:{0} Index:{1}'.format(max_count, i))
         (x, y) = self.index_to_coordinate(i)
         return (x+1, y+1) # board index starts at 1
 
-    def _calculate_counts(self, player, board):
+    def _calculate_counts(self, player, board, boats):
         board_counts = [0 for x in range(0, len(board))]
-        for boat in self.game.boats:
-            size = int(boat[1:])
+        targetting = False #set to true if we have possible boat positions through a hit
+        for size in boats:
             # find all spots to put this boat and increment counts for those squares
             for i in range(0, len(board)):
                 # loop by rows, alternate parity in each row
                 (horizontal, hweight, vertical, vweight) = self._check_boat_location(board, i, size)
+                if vweight > 1 or hweight > 1:
+                    targetting = True
                 if horizontal:
                     for ii in range(i, i + size):
                         if board[ii] == '.':
@@ -74,8 +76,10 @@ class CosmoBot(BoatBot):
                         if board[ii] == '.':
                             board_counts[ii] = board_counts[ii] + vweight
        
-        self.logger.debug('Board:\n{0}\nCount:\n{1}'.format(self.print_board(board), self.print_board(board_counts)))
-        return board_counts
+        str_board = self.print_board(board)
+        str_counts = self.print_board(board_counts)
+        self.logger.debug('Board:\n{0}\nCount:\n{1}'.format(str_board, str_counts))
+        return board_counts, targetting
 
     def _check_boat_location(self, board, i, size):
         if board[i] == '0':
@@ -102,14 +106,96 @@ class CosmoBot(BoatBot):
 
         return (horizontal, hweight, vertical, vweight)
 
+    def _eliminate_boats(self, board):
+        boats = list(self.game.boats.values())
+        boats.sort()
+        # remove boats surrounded by misses from possible boat list
+        length = 0
+        for x in range(0, self.game.width):
+            if length in boats:
+                boats.remove(length)
+            length = 0
+            for y in range(0, self.game.length):
+                i = self.coordinate_to_index(x, y) 
+                if board[i] != 'X' or not self._adjacent_misses(i, board, 'vertical'):
+                    length = 0
+                else:
+                    length = length + 1
+
+        length = 0
+        for y in range(0, self.game.length):
+            if length in boats:
+                boats.remove(length)
+            length = 0
+            for x in range(0, self.game.width):
+                i = self.coordinate_to_index(x, y)
+                if board[i] != 'X' or not self._adjacent_misses(i, board, 'horizontal'):
+                    length = 0
+                else:
+                    length = length + 1
+
+        return boats
+
     def _hit(self, player, x, y):
-        if player == self.bot_name:
-            return
-        self.hit_stack.append(player)
+        pass
 
     def _generate_board(self):
-        # TODO make smarter
         return self.random_board()
+    
+    # override boat placement check to avoid placing boats next to each other
+    def _check_boat_placement(self, board, i, size):
+        if board[i] != '.':
+            return (False, False)
+        # check right and down
+        horizontal = int((i + size - 1) / self.game.width) == int(i / self.game.width)
+        vertical = int((i + ((size - 1) * self.game.width)) / self.game.width) < self.game.length
+        x, y = self.index_to_coordinate(i)
+        for pos in range(0, size):
+            horiz_idx = self.coordinate_to_index(x+pos, y)
+            if horizontal and ((board[horiz_idx] != '.') or self._adjacent_boat(horiz_idx, board)):
+                horizontal = False
+            vert_idx = self.coordinate_to_index(x, y+pos)
+            if vertical and ((board[vert_idx] != '.') or self._adjacent_boat(vert_idx, board)):
+                vertical = False
+            if not horizontal and not vertical:
+                break
+
+        return (horizontal, vertical)
+
+    def _adjacent_idx(self, i, board, exclude_right = False, exclude_below = False):
+        above = i - self.game.width
+        below = i + self.game.width
+        right = i + 1
+        left = i - 1
+        idx = []
+        if above >= 0:
+            idx.append(above)
+        if (not exclude_below) and below < (self.game.length * self.game.width):
+            idx.append(below)
+        if (not exclude_right) and int(right/self.game.width) == int(i/self.game.width):
+            idx.append(right)
+        if int(left/self.game.width) == int(i/self.game.width):
+            idx.append(left)
+        return idx
+
+    def _adjacent_misses(self, i, board, direction):
+        if direction == 'horizontal':
+            adj = self._adjacent_idx(i, board, True, False)
+        else:
+            adj = self._adjacent_idx(i, board, False, True)
+        for idx in adj:
+            if board[idx] != '0':
+                return False
+
+        return True
+
+    def _adjacent_boat(self, i, board):
+        idx = self._adjacent_idx(i, board)
+        for ii in idx:
+            if board[ii] != '.':
+                return True
+        
+        return False
 
 # Cosmo boat bot main
 if __name__ == '__main__':

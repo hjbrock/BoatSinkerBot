@@ -5,7 +5,16 @@ class Game(object):
         self.scores = {}
         self.width = width
         self.length = length
-        self.boats = boats
+        self.boats = {}
+        self.hits_per_board = 0
+        self.min_boat_size = 1
+        for boat in boats:
+            letter = boat[:1]
+            size = int(boat[1:])
+            self.hits_per_board = self.hits_per_board + size
+            self.boats[letter] = size
+            if size < self.min_boat_size:
+                self.min_boat_size = size
 
     def update_board(self, player_name, board):
         if player_name != self.current_player:

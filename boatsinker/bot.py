@@ -71,7 +71,7 @@ class BoatBot(BoatsinkerListener):
             board = self._generate_board()
             self.send('J|{0}|{1}'.format(self.bot_name, board))
             self.logger.info('Joined game')
-            self.logger.debug(self.print_board(board))
+            self.logger.debug('Board:\n{0}'.format(self.print_board(board)))
 
     def _board_change(self, parts):
         if self.game is not None:
@@ -113,14 +113,12 @@ class BoatBot(BoatsinkerListener):
    
     def random_board(self):
         board = ['.' for x in range(0, self.game.width*self.game.length)]
-        for boat in self.game.boats:
-            letter = boat[0:1]
-            size = int(boat[1:])
+        for letter, size in self.game.boats.items():
             # find all spots to put this boat, then pick a random spot
             # format: x|y|direction
             locations = []
             for i in range(0, len(board)):
-                (horizontal, vertical) = self._check_location(board, i, size)
+                (horizontal, vertical) = self._check_boat_placement(board, i, size)
                 if horizontal:
                     locations.append((i, 'horizontal'))
                 if vertical:
@@ -136,7 +134,7 @@ class BoatBot(BoatsinkerListener):
 
         return ''.join(board)
 
-    def _check_location(self, board, i, size):
+    def _check_boat_placement(self, board, i, size):
         if board[i] != '.':
             return (False, False)
         #check right and down
