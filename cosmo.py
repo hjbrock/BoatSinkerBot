@@ -11,30 +11,29 @@ class CosmoBot(BoatBot):
         self.logger = Logger()
 
     def _calculate_shot(self):
-        player, board = self._pick_board()
-        # calculate probability of all open squares having a boat
-        boats = self._eliminate_boats(board)
-        if len(boats) == 0: # we screwed up 
-            boats = list(self.game.boats.values())
-        board_counts, targetting = self._calculate_counts(player, board, boats)
-        self.logger.debug('Player:{0} Targetting:{1}'.format(player, targetting))
-        # hit the square with the highest count
-        move = self._max_count(board_counts, targetting, self.game.min_boat_size)
-        return (player, move)
+        highest_count = -1
+        best_move = (0, 0)
+        best_player = ''
+        best_empty_cells = (self.game.width * self.game.length) + 1
 
-    def _pick_board(self):
-        bestPlayer = ''
-        bestBoard = []
-        minEmptyCells = (self.game.width * self.game.length) + 1
         for player, board in self.game.boards.items():
-            emptyCells = board.count('.')
-            hits = board.count('X')
-            if hits < self.game.hits_per_board and emptyCells < minEmptyCells:
-                minEmptyCells = emptyCells
-                bestPlayer = player
-                bestBoard = board
+            if board.count('X') >= self.game.hits_per_board:
+                continue
+            empty_cells = board.count('.')
+            if empty_cells == 0:
+                continue
+            boats = self._eliminate_boats(board)
+            if len(boats) == 0: # we screwed up 
+                boats = list(self.game.boats.values())
+            board_counts, targetting = self._calculate_counts(player, board, boats)
+            count, move = self._max_count(board_counts, targetting, self.game.min_boat_size)
+            if (count > highest_count) or (count == highest_count and empty_cells < best_empty_cells):
+                highest_count = count
+                best_move = move
+                best_empty_cells = empty_cells
+                best_player = player
 
-        return bestPlayer, bestBoard
+        return (best_player, best_move)
 
     def _max_count(self, board_counts, targetting, min_boat_size):
         max_count = -1
@@ -55,7 +54,7 @@ class CosmoBot(BoatBot):
         
         self.logger.debug('Max count:{0} Index:{1}'.format(max_count, i))
         (x, y) = self.index_to_coordinate(i)
-        return (x+1, y+1) # board index starts at 1
+        return max_count, (x+1, y+1) # board index starts at 1
 
     def _calculate_counts(self, player, board, boats):
         board_counts = [0 for x in range(0, len(board))]
