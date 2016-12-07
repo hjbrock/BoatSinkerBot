@@ -138,11 +138,42 @@ class CosmoBot(BoatBot):
     def _hit(self, player, x, y):
         pass
 
-    def _generate_board(self):
-        return self.random_board()
+    def get_placements(self, board, size):
+        self.logger.debug('In cosmo get_placements')
+        locations = []
+        firstRow = self.coordinate_to_index(0, 0)
+        lastRow = self.coordinate_to_index(0, self.game.length-1)
+        lastRowEnd = self.game.width * self.game.length
+        lastColumn = self.coordinate_to_index(self.game.width-1, 0)
+        
+        for i in range(firstRow, lastColumn + 1):
+            horizontal, vertical = self.check_boat_placement(board, i, size)
+            if horizontal:
+                locations.append((i, 'horizontal'))
+        for i in range(lastRow, lastRowEnd):
+            horizontal, vertical = self.check_boat_placement(board, i, size)
+            if horizontal:
+                locations.append((i, 'horizontal'))
+        for i in range(firstRow, lastRow + 1, self.game.width):
+            horizontal, vertical = self.check_boat_placement(board, i, size)
+            if vertical:
+                locations.append((i, 'vertical'))
+        for i in range(lastColumn, lastRowEnd, self.game.width):
+            horizontal, vertical = self.check_boat_placement(board, i, size)
+            if vertical:
+                locations.append((i, 'vertical'))
+
+        if len(locations) == 0:
+            for i in range(0, len(board)):
+                (horizontal, vertical) = self.check_boat_placement(board, i, size)
+                if horizontal:
+                    locations.append((i, 'horizontal'))
+                if vertical:
+                    locations.append((i, 'vertical'))
+
+        return locations
     
-    # override boat placement check to avoid placing boats next to each other
-    def _check_boat_placement(self, board, i, size):
+    def check_boat_placement(self, board, i, size):
         if board[i] != '.':
             return (False, False)
         # check right and down

@@ -26,9 +26,6 @@ class RandomRickBot(BoatBot):
     def _hit(self, player, x, y):
         pass
 
-    def _generate_board(self):
-        return self.random_board()
-
 # RandomRick boat bot main
 if __name__ == '__main__':
     if len(sys.argv) < 3:

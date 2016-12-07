@@ -32,9 +32,6 @@ class BoatBot(BoatsinkerListener):
     def _calculate_shot(self):
         raise NotImplementedError('BoatBot is abstract')
 
-    def _generate_board(self):
-        raise NotImplementedError('BoatBot is abstract')
-
     def _hit(self, player, x, y):
         raise NotImplementedError('BoatBot is abstract')
 
@@ -68,7 +65,7 @@ class BoatBot(BoatsinkerListener):
             for boat in range(num_boats):
                 boats.append(parts[11 + boat])
             self.game = Game(self.bot_name, width, length, boats)
-            board = self._generate_board()
+            board = self.generate_board()
             self.send('J|{0}|{1}'.format(self.bot_name, board))
             self.logger.info('Joined game')
             self.logger.debug('Board:\n{0}'.format(self.print_board(board)))
@@ -111,30 +108,35 @@ class BoatBot(BoatsinkerListener):
             rows.append(' '.join([str(x) for x in row]))
         return '\n'.join(rows)
    
-    def random_board(self):
+    def generate_board(self):
         board = ['.' for x in range(0, self.game.width*self.game.length)]
         for letter, size in self.game.boats.items():
-            # find all spots to put this boat, then pick a random spot
-            # format: x|y|direction
-            locations = []
-            for i in range(0, len(board)):
-                (horizontal, vertical) = self._check_boat_placement(board, i, size)
-                if horizontal:
-                    locations.append((i, 'horizontal'))
-                if vertical:
-                    locations.append((i, 'vertical'))
-
-            (i, direction) = locations[randrange(0, len(locations))]
-            if direction == 'horizontal':
-                for xx in range(i, i + size):
-                    board[xx] = letter
-            elif direction == 'vertical':
-                for yy in range(i, i + (self.game.width*size), self.game.width):
-                    board[yy] = letter
+            locations = self.get_placements(board, size)
+            self.place_boat(board, locations, size, letter)
 
         return ''.join(board)
 
-    def _check_boat_placement(self, board, i, size):
+    def place_boat(self, board, locations, size, letter):
+        (i, direction) = locations[randrange(0, len(locations))]
+        if direction == 'horizontal':
+            for xx in range(i, i + size):
+                board[xx] = letter
+        elif direction == 'vertical':
+            for yy in range(i, i + (self.game.width*size), self.game.width):
+                board[yy] = letter
+
+    def get_placements(self, board, size):
+        locations = []
+        for i in range(0, len(board)):
+            (horizontal, vertical) = self.check_boat_placement(board, i, size)
+            if horizontal:
+                locations.append((i, 'horizontal'))
+            if vertical:
+                locations.append((i, 'vertical'))
+
+        return locations
+
+    def check_boat_placement(self, board, i, size):
         if board[i] != '.':
             return (False, False)
         #check right and down
